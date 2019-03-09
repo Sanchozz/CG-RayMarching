@@ -70,8 +70,8 @@ public:
         updateCameraVectors();
     }
 
-    void ProcessKeyboard(int dir, GLfloat deltaTime) {
-        GLfloat velocity = 3.0f * deltaTime;
+    void ProcessKeyboard(int dir, GLfloat deltaTime, GLfloat a) {
+        GLfloat velocity = a * deltaTime;
         //GLfloat velocity = 1.0f;
         if (dir == 0) {
             pos += front * velocity;
@@ -84,6 +84,12 @@ public:
         }
         if (dir == 3) {
             pos += right * velocity;
+        }
+        if (dir == 4) {
+            pos += wUp * velocity;
+        }
+        if (dir == 5) {
+            pos -= wUp * velocity;
         }
     }
 };
@@ -121,8 +127,6 @@ static void mouseMove(GLFWwindow *window, double xpos, double ypos) {
     GLfloat xoffset = float(xpos) - mx;
     GLfloat yoffset = my - float(ypos);  
 
-   // GLfloat xoffset = mx - float(xpos);
-    //GLfloat yoffset = float(ypos) - my;  
     mx = float(xpos);
     my = float(ypos);
     
@@ -165,17 +169,27 @@ void keyboardPress(GLFWwindow* window, int key, int scancode, int action, int mo
 
 void cameraMove(Camera &camera, GLfloat deltaTime)
 {
+    GLfloat a = 3.0;
+    if (keys[GLFW_KEY_LEFT_SHIFT]) {
+        a = 6.0;
+    }
     if (keys[GLFW_KEY_W]) {
-        camera.ProcessKeyboard(0, deltaTime);
+        camera.ProcessKeyboard(0, deltaTime, a);
     }
     if (keys[GLFW_KEY_A]) {
-        camera.ProcessKeyboard(2, deltaTime);
+        camera.ProcessKeyboard(2, deltaTime, a);
     }
     if (keys[GLFW_KEY_S]) {
-        camera.ProcessKeyboard(1, deltaTime);
+        camera.ProcessKeyboard(1, deltaTime, a);
     }
     if (keys[GLFW_KEY_D]) {
-        camera.ProcessKeyboard(3, deltaTime);
+        camera.ProcessKeyboard(3, deltaTime, a);
+    }
+    if (keys[GLFW_KEY_SPACE]) {
+        camera.ProcessKeyboard(4, deltaTime, a);
+    }
+    if (keys[GLFW_KEY_LEFT_CONTROL]) {
+        camera.ProcessKeyboard(5, deltaTime, a);
     }
 }
 

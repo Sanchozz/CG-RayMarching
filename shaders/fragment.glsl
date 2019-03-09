@@ -157,7 +157,7 @@ void main(void)
     // transorm ray with matrix
     //
     //ray_pos = (g_rayMatrix * float4(ray_pos, 1)).xyz;
-    ray_dir = float3x3(g_rayMatrix)* ray_dir;
+    ray_dir = ray_dir * float3x3(g_rayMatrix);
 
     float dist = rayMarching(ray_pos, ray_dir);
     
