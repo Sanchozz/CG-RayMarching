@@ -1,4 +1,4 @@
-#version 330
+#version 440
 
 #define float2 vec2
 #define float3 vec3
@@ -12,6 +12,8 @@ layout(location = 0) out vec4 fragColor;
 
 uniform int g_screenWidth;
 uniform int g_screenHeight;
+
+uniform float3 g_rayPos;
 
 uniform float3 g_bBoxMin   = float3(-1, -1, -1);
 uniform float3 g_bBoxMax   = float3(1, 1, 1);
@@ -33,11 +35,18 @@ float Sphere(vec3 pos, vec3 spos, float s) {
     return length(pos - spos) - s;
 }
 
+float udRoundBox( vec3 pos, vec3 b, float r )
+{
+  return length(max(abs(pos)-b, 0.0))-r;
+}
+
+
 
 float sceneSDF1(vec3 pos)
 {
     vec3 spos = vec3(0.0, 0.0, 0.0);
-    return Sphere(pos, spos, 1.0);
+    //return Sphere(pos, spos, 1.0);
+    return udRoundBox(pos, vec3(.5, .5, 0.2), 0.3);
 }
 
 float sceneSDF2(vec3 pos)
@@ -142,7 +151,7 @@ void main(void)
 
     // generate initial ray
     //
-    float3 ray_pos = float3(0, 0, 3);
+    float3 ray_pos = g_rayPos;
     float3 ray_dir = EyeRayDirection(x, y, w, h);
 
     // transorm ray with matrix

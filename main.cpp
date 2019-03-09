@@ -14,9 +14,91 @@ static GLsizei FRAMEBUFFER_WIDTH = 512, FRAMEBUFFER_HEIGHT = 512;
 
 using namespace LiteMath;
 
+class Camera {
+    float3 wUp;
+public:
+    float3 pos;
+    float3 front;
+    float3 up;
+    float3 right;
+    GLfloat yaw;
+    GLfloat pitch;
+    GLfloat mouseSensitivity;
+    Camera( float3 _pos = float3(0.0f, 0.0f, 5.0f), 
+            float3 _front = float3(0.0f, 0.0f, -1.0f),
+            float3 _up = float3(0.0f, 1.0f, 0.0f)) 
+            : wUp(_up)
+            , pos(_pos)
+            , front(_front)
+            , up(_up)
+            , right(normalize(cross(_up, _front)))
+            , yaw(-90.0f)
+            , pitch(0.0f)
+            , mouseSensitivity(0.1f) {}
+
+    float4x4 GetViewMatrix() const {
+        return lookAtTransposed(pos, pos + front, up);
+    }
+
+    void updateCameraVectors() {
+        float3 tmp;
+
+        tmp.x = cos(DEG_TO_RAD*yaw) * cos(DEG_TO_RAD*pitch);
+        tmp.y = sin(DEG_TO_RAD*pitch);
+        tmp.z = sin(DEG_TO_RAD*yaw) * cos(DEG_TO_RAD*pitch);
+
+        front = normalize(tmp);
+        right = normalize(cross(front, wUp));
+        up    = normalize(cross(right, front));
+    }
+
+    void ProcessMouseMove(GLfloat deltaX, GLfloat deltaY, GLboolean limitPitch) {
+        deltaX *= mouseSensitivity;
+        deltaY *= mouseSensitivity;
+
+        yaw += deltaX;
+        pitch += deltaY;
+
+        if (limitPitch) {
+            if (pitch > 89.0f) {
+                pitch = 89.0f;
+            }
+            if (pitch < -89.0f) {
+                pitch = -89.0f;
+            }
+        }
+        updateCameraVectors();
+    }
+
+    void ProcessKeyboard(int dir, GLfloat deltaTime) {
+        GLfloat velocity = 3.0f * deltaTime;
+        //GLfloat velocity = 1.0f;
+        if (dir == 0) {
+            pos += front * velocity;
+        }
+        if (dir == 1) {
+            pos -= front * velocity;
+        }
+        if (dir == 2) {
+            pos -= right * velocity;
+        }
+        if (dir == 3) {
+            pos += right * velocity;
+        }
+    }
+};
+
 float3 g_camPos(0, 0, 5);
+Camera camera;
 float cam_rot[2] = {0, 0};
-double mx = 0, my = 0;
+static GLfloat mx = 0, my = 0;
+static bool keys[1024];
+static bool firstMouse = true;
+static bool g_captureMouse = false;
+static bool g_capturedMouseJustNow = false;
+
+GLfloat deltaTime = 0.0f;
+GLfloat lastFrame = 0.0f;
 
 
 void windowResize(GLFWwindow *window, int width, int height) {
@@ -30,17 +112,71 @@ void framebufferResize(GLFWwindow *window, int width, int height) {
 }
 
 static void mouseMove(GLFWwindow *window, double xpos, double ypos) {
-    //xpos *= 0.05f;
-    //ypos *= 0.05f;
+    if (firstMouse) {
+        mx = float(xpos);
+        my = float(ypos);
+        firstMouse = false;
+    }
 
-    double x1 = xpos;
-    double y1 = ypos;
+    GLfloat xoffset = float(xpos) - mx;
+    GLfloat yoffset = my - float(ypos);  
 
-    cam_rot[0] -= 0.25f * 0.05f * (y1 - my);    //Изменение угола поворота
-    cam_rot[1] -= 0.25f * 0.05f * (x1 - mx);
+   // GLfloat xoffset = mx - float(xpos);
+    //GLfloat yoffset = float(ypos) - my;  
+    mx = float(xpos);
+    my = float(ypos);
+    
+    if (g_captureMouse) {
+        camera.ProcessMouseMove(xoffset, yoffset, true);
+    }
 
-    mx = xpos;
-    my = ypos;
+}
+
+void mouseClick(GLFWwindow* window, int button, int action, int mods)
+{
+    if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
+        g_captureMouse = !g_captureMouse;
+    }
+
+    if (g_captureMouse) {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        g_capturedMouseJustNow = true;
+    } else {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
+
+}
+
+void keyboardPress(GLFWwindow* window, int key, int scancode, int action, int mode) {
+    switch (key) {
+        case GLFW_KEY_ESCAPE:
+            if (action == GLFW_PRESS) {
+			    glfwSetWindowShouldClose(window, GL_TRUE);
+            }
+            break;
+        default:
+            if (action == GLFW_PRESS) {
+			    keys[key] = true;
+            } else if (action == GLFW_RELEASE) {
+			    keys[key] = false;
+            }
+    }
+}
+
+void cameraMove(Camera &camera, GLfloat deltaTime)
+{
+    if (keys[GLFW_KEY_W]) {
+        camera.ProcessKeyboard(0, deltaTime);
+    }
+    if (keys[GLFW_KEY_A]) {
+        camera.ProcessKeyboard(2, deltaTime);
+    }
+    if (keys[GLFW_KEY_S]) {
+        camera.ProcessKeyboard(1, deltaTime);
+    }
+    if (keys[GLFW_KEY_D]) {
+        camera.ProcessKeyboard(3, deltaTime);
+    }
 }
 
 
@@ -65,8 +201,8 @@ int main(int argc, char **argv) {
         return -1;
 
     //запрашиваем контекст opengl версии 3.3
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
 
@@ -84,6 +220,8 @@ int main(int argc, char **argv) {
     glfwGetFramebufferSize(window, &FRAMEBUFFER_WIDTH, &FRAMEBUFFER_HEIGHT);
 
     glfwSetCursorPosCallback(window, mouseMove);
+    glfwSetMouseButtonCallback(window, mouseClick);
+    glfwSetKeyCallback(window, keyboardPress); 
     glfwSetWindowSizeCallback(window, windowResize);
     glfwSetFramebufferSizeCallback(window, framebufferResize);
 
@@ -149,8 +287,11 @@ int main(int argc, char **argv) {
 
     //цикл обработки сообщений и отрисовки сцены каждый кадр
     while (!glfwWindowShouldClose(window)) {
+        GLfloat currentFrame = glfwGetTime();
+		deltaTime = currentFrame - lastFrame;
+		lastFrame = currentFrame;
         glfwPollEvents();
-
+        cameraMove(camera, deltaTime);
         //очищаем экран каждый кадр
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         GL_CHECK_ERRORS;
@@ -160,11 +301,13 @@ int main(int argc, char **argv) {
         program.StartUseShader();
         GL_CHECK_ERRORS;
 
-        float4x4 camRotMatrix = mul(rotate_Y_4x4(-cam_rot[1]), rotate_X_4x4(+cam_rot[0]));
-        float4x4 camTransMatrix = translate4x4(g_camPos);
-        float4x4 rayMatrix = mul(camRotMatrix, camTransMatrix);
+        //float4x4 camRotMatrix = mul(rotate_Y_4x4(-cam_rot[1]), rotate_X_4x4(+cam_rot[0]));
+        //float4x4 camTransMatrix = translate4x4(g_camPos);
+       // float4x4 camTransMatrix = camera.GetViewMatrix();
+        //float4x4 rayMatrix = mul(camRotMatrix, camTransMatrix);
+        float4x4 rayMatrix = camera.GetViewMatrix();
         program.SetUniform("g_rayMatrix", rayMatrix);
-
+        program.SetUniform("g_rayPos", camera.pos);
         program.SetUniform("g_screenWidth", WIDTH);
         program.SetUniform("g_screenHeight", HEIGHT);
 
