@@ -24,7 +24,7 @@ public:
     GLfloat yaw;
     GLfloat pitch;
     GLfloat mouseSensitivity;
-    Camera( float3 _pos = float3(0.0f, 0.0f, 5.0f), 
+    Camera( float3 _pos = float3(0.0f, 0.0f, 0.0f), 
             float3 _front = float3(0.0f, 0.0f, -1.0f),
             float3 _up = float3(0.0f, 1.0f, 0.0f)) 
             : wUp(_up)
@@ -71,30 +71,29 @@ public:
     }
 
     void ProcessKeyboard(int dir, GLfloat deltaTime, GLfloat a) {
-        GLfloat velocity = a * deltaTime;
-        //GLfloat velocity = 1.0f;
+        GLfloat v = a * deltaTime;
+
         if (dir == 0) {
-            pos += front * velocity;
+            pos += front * v;
         }
         if (dir == 1) {
-            pos -= front * velocity;
+            pos -= front * v;
         }
         if (dir == 2) {
-            pos -= right * velocity;
+            pos -= right * v;
         }
         if (dir == 3) {
-            pos += right * velocity;
+            pos += right * v;
         }
         if (dir == 4) {
-            pos += wUp * velocity;
+            pos += wUp * v;
         }
         if (dir == 5) {
-            pos -= wUp * velocity;
+            pos -= wUp * v;
         }
     }
 };
 
-float3 g_camPos(0, 0, 5);
 Camera camera;
 float cam_rot[2] = {0, 0};
 static GLfloat mx = 0, my = 0;
@@ -102,6 +101,7 @@ static bool keys[1024];
 static bool firstMouse = true;
 static bool g_captureMouse = false;
 static bool g_capturedMouseJustNow = false;
+static int sceneIndex = 1;
 
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
@@ -190,6 +190,12 @@ void cameraMove(Camera &camera, GLfloat deltaTime)
     }
     if (keys[GLFW_KEY_LEFT_CONTROL]) {
         camera.ProcessKeyboard(5, deltaTime, a);
+    }
+    if (keys[GLFW_KEY_1]) {
+        sceneIndex = 1;
+    }
+    if (keys[GLFW_KEY_2]) {
+        sceneIndex = 2;
     }
 }
 
@@ -322,6 +328,7 @@ int main(int argc, char **argv) {
         float4x4 rayMatrix = camera.GetViewMatrix();
         program.SetUniform("g_rayMatrix", rayMatrix);
         program.SetUniform("g_rayPos", camera.pos);
+        program.SetUniform("g_sceneIndex", sceneIndex);
         program.SetUniform("g_screenWidth", WIDTH);
         program.SetUniform("g_screenHeight", HEIGHT);
 
