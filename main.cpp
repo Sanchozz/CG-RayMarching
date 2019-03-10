@@ -24,7 +24,7 @@ public:
     GLfloat yaw;
     GLfloat pitch;
     GLfloat mouseSensitivity;
-    Camera( float3 _pos = float3(0.0f, 0.0f, 0.0f), 
+    Camera( float3 _pos = float3(0.0f, 0.0f, 4.0f), 
             float3 _front = float3(0.0f, 0.0f, -1.0f),
             float3 _up = float3(0.0f, 1.0f, 0.0f)) 
             : wUp(_up)
@@ -34,7 +34,9 @@ public:
             , right(normalize(cross(_up, _front)))
             , yaw(-90.0f)
             , pitch(0.0f)
-            , mouseSensitivity(0.1f) {}
+            , mouseSensitivity(0.1f) {
+                updateCameraVectors();
+            }
 
     float4x4 GetViewMatrix() const {
         return lookAtTransposed(pos, pos + front, up);
@@ -102,6 +104,9 @@ static bool firstMouse = true;
 static bool g_captureMouse = false;
 static bool g_capturedMouseJustNow = false;
 static int sceneIndex = 1;
+static int fractalIter = 3;
+static int fractalIterReleased = true;
+static float angle = 0.0f;
 
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
@@ -158,20 +163,44 @@ void keyboardPress(GLFWwindow* window, int key, int scancode, int action, int mo
 			    glfwSetWindowShouldClose(window, GL_TRUE);
             }
             break;
+        case GLFW_KEY_Z:
+            if (action == GLFW_PRESS) {
+                if (!keys[key]) {
+                    keys[key] = true;
+                    if (fractalIter > 0) {
+                        fractalIter--;
+                    }
+                    
+                } 
+            } else if (action == GLFW_RELEASE) {
+			    keys[key] = false;
+            }
+            break;
+        case GLFW_KEY_X:
+            if (action == GLFW_PRESS) {
+                if (!keys[key]) {
+                    keys[key] = true;
+                    fractalIter++;
+                } 
+            } else if (action == GLFW_RELEASE) {
+			    keys[key] = false;
+            }
+            break;
         default:
             if (action == GLFW_PRESS) {
 			    keys[key] = true;
             } else if (action == GLFW_RELEASE) {
 			    keys[key] = false;
             }
+            break;
     }
 }
 
 void cameraMove(Camera &camera, GLfloat deltaTime)
 {
-    GLfloat a = 3.0;
+    GLfloat a = 2.0;
     if (keys[GLFW_KEY_LEFT_SHIFT]) {
-        a = 6.0;
+        a = 4.0;
     }
     if (keys[GLFW_KEY_W]) {
         camera.ProcessKeyboard(0, deltaTime, a);
@@ -185,10 +214,10 @@ void cameraMove(Camera &camera, GLfloat deltaTime)
     if (keys[GLFW_KEY_D]) {
         camera.ProcessKeyboard(3, deltaTime, a);
     }
-    if (keys[GLFW_KEY_SPACE]) {
+    if (keys[GLFW_KEY_R]) {
         camera.ProcessKeyboard(4, deltaTime, a);
     }
-    if (keys[GLFW_KEY_LEFT_CONTROL]) {
+    if (keys[GLFW_KEY_F]) {
         camera.ProcessKeyboard(5, deltaTime, a);
     }
     if (keys[GLFW_KEY_1]) {
@@ -312,6 +341,13 @@ int main(int argc, char **argv) {
 		lastFrame = currentFrame;
         glfwPollEvents();
         cameraMove(camera, deltaTime);
+        if (sceneIndex == 1) {
+            angle += 0.01;
+        }
+        
+        /*if (angle == 3.15) {
+            angle = 0.0f;
+        }*/
         //очищаем экран каждый кадр
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         GL_CHECK_ERRORS;
@@ -328,6 +364,10 @@ int main(int argc, char **argv) {
         float4x4 rayMatrix = camera.GetViewMatrix();
         program.SetUniform("g_rayMatrix", rayMatrix);
         program.SetUniform("g_rayPos", camera.pos);
+        if (sceneIndex == 1) {
+            program.SetUniform("g_angle", angle);
+        }
+        program.SetUniform("g_fractalIter", fractalIter);
         program.SetUniform("g_sceneIndex", sceneIndex);
         program.SetUniform("g_screenWidth", WIDTH);
         program.SetUniform("g_screenHeight", HEIGHT);
