@@ -224,12 +224,31 @@ Object sceneSDF2(vec3 pos)
     return objs[nearest_i];
 }
 
+Object sceneSDF3(vec3 pos)
+{
+    Object objs[1];
+    objs[0].id = 1;
+    objs[0].dist = sdSierpinski(rY(1.047) * pos);
+
+    float min_dist = 1000.0f;
+    int nearest_i;
+    for (int i = 0; i < 1; i++) {
+        if (objs[i].dist < min_dist) {
+            nearest_i = i;
+            min_dist = objs[i].dist;
+        }
+    }
+    
+    return objs[nearest_i];
+}
+
 Object sceneSDF(int index, vec3 pos) {
     if (index == 1) {
         return sceneSDF1(pos);
-    }
-    if (index == 2) {
+    } else if (index == 2) {
         return sceneSDF2(pos);
+    } else if (index == 3) {
+        return sceneSDF3(pos);
     }
     return sceneSDF1(pos);
 }
@@ -346,12 +365,8 @@ void main(void)
 
     vec3 p = ray_pos + obj.dist * ray_dir;
 
-    vec3 K_a;
-    vec3 K_d;
-    vec3 K_s;
-    float Shininess;
-    vec3 lights[2];
-    vec3 lightIntensity = vec3(0.5, 0.5, 0.5);
+    vec3 lights[3];
+    const vec3 lightIntensity = vec3(0.6, 0.6, 0.6);
     vec3 color;
     const vec3 ambientLight = 0.5 * vec3(1.0, 1.0, 1.0);
     if (sceneIndex == 1) {
@@ -390,33 +405,27 @@ void main(void)
                 color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity) * shadow(p, diff, 0.01, length(lights[i]-p -0.01));
             }
             color += mir+mir_k*(K_d*.2 + color*.1);
-        }
-
-        if (obj.id == 3) {
-            const vec3 K_a = vec3(0.05375, 0.05, 0.06625);
-            const vec3 K_d = vec3(0.18275, 0.17, 0.22525); 
-            const vec3 K_s = vec3(0.332741, 0.328634, 0.346435);
+        } else if (obj.id == 3) { //ruby
+            const vec3 K_a = vec3(0.1745, 0.01175, 0.01175);
+            const vec3 K_d = vec3(0.61424, 0.04136, 0.04136); 
+            const vec3 K_s = vec3(0.727811, 0.626959, 0.626959);
+            const float Shininess = 30;
+            for (int i = 0; i < 2; i++) {
+                vec3 diff = normalize(-vec3(lights[i] - p));
+                color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity) * shadow(p, diff, 0.01, length(lights[i]-p)-0.01);
+            }
+            color += mir+mir_k*(K_d*.2 + color*.8);
+        } else if (obj.id == 5) { //gold
+            const vec3 K_a = vec3(0.19125, 0.0735, 0.0225);
+            const vec3 K_d = vec3(0.7038, 0.27048, 0.0828); 
+            const vec3 K_s = vec3(0.256777, 0.137622, 0.086014);
             const float Shininess = 3;
             for (int i = 0; i < 2; i++) {
                 vec3 diff = normalize(-vec3(lights[i] - p));
                 color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity) * shadow(p, diff, 0.01, length(lights[i]-p)-0.01);
             }
-            color += mir+mir_k*(K_d*.2 + color*.1);
-        }
-
-        if (obj.id == 5) { //gold
-            const vec3 K_a = vec3(0.24725, 0.1995, 0.0745);
-            const vec3 K_d = vec3(0.75164, 0.60648, 0.22648); 
-            const vec3 K_s = vec3(0.628281, 0.555802, 0.366065);
-            const float Shininess = 4;
-            for (int i = 0; i < 2; i++) {
-                vec3 diff = normalize(-vec3(lights[i] - p));
-                color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity) * shadow(p, diff, 0.01, length(lights[i]-p)-0.01);
-            }
-            color += mir+mir_k*(K_d*.2 + color*.1);
-        }
-
-        if (obj.id == 6) { //sin cos color
+            color += mir+mir_k*(K_d*.2 + color*.8);
+        } else if (obj.id == 6) { //sin cos color
             const vec3 K_a = vec3(0.1745, 0.01175, 0.01175);
             vec3 K_d = vec3(abs(cos(g_angle * 0.5)) * 1.0, abs(sin(4 * g_angle * 0.5)) * 1.0, abs(sin(g_angle * 0.5) * cos(g_angle * 0.5)) * 1.0);
             const vec3 K_s = vec3(0.727811, 0.626959, 0.626959);
@@ -427,27 +436,31 @@ void main(void)
             }
             color += mir+mir_k*(K_d*.2 + color*.1);
         }
-
-        /*if (obj.id == 7) { // ruby
-            const vec3 K_a = vec3(0.1745, 0.01175, 0.01175);
-            const vec3 K_d = vec3(0.61424, 0.04136, 0.04136); 
-            const vec3 K_s = vec3(0.727811, 0.626959, 0.626959);
-            const float Shininess = 6;
-            for (int i = 0; i < 2; i++) {
-                vec3 diff = normalize(-vec3(lights[i] - p));
-                color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity) * shadow(p, diff, 0.01, length(lights[i]-p)-0.01);
-            }
-            color += mir+mir_k*(K_d*.2 + color*.1);
-        }*/
-    } else if (sceneIndex == 2) {
-        lights[0] = vec3(8.0, 2, 0);
+    } else if (sceneIndex == 2) { //copper
+        lights[0] = vec3(-8.0, 4, 0);
         lights[1] = vec3(0.0, -2.0, 4.0);
-        const vec3 K_a = vec3(0.1745, 0.01175, 0.01175);
-        const vec3 K_d = vec3(0.61424, 0.04136, 0.04136); 
-        const vec3 K_s = vec3(0.727811, 0.626959, 0.626959);
+        lights[2] = vec3(-6.0, 0.0, 4.0);
+        const vec3 K_a = vec3(0.24725, 0.1995, 0.0745);
+        const vec3 K_d = vec3(0.75164, 0.60648, 0.22648); 
+        const vec3 K_s = vec3(0.628281, 0.555802, 0.366065);
+        const float Shininess = 4;
         color = ambientLight * K_a;
-        const float Shininess = 3;
-        for (int i = 0; i < 2; i++) {
+       
+        for (int i = 0; i < 3; i++) {
+            vec3 diff = normalize(-vec3(lights[i] - p));
+            color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity) * shadow(p, diff, 0.01, length(lights[i]-p -0.01));
+        }
+    } else if (sceneIndex == 3) { //copper
+        lights[0] = vec3(-8.0, 4, 0);
+        lights[1] = vec3(0.0, -2.0, 4.0);
+        lights[2] = vec3(-6.0, 0.0, 4.0);
+        const vec3 K_a = vec3(0.24725, 0.1995, 0.0745);
+        const vec3 K_d = vec3(0.75164, 0.60648, 0.22648); 
+        const vec3 K_s = vec3(0.628281, 0.555802, 0.366065);
+        const float Shininess = 4;
+        color = ambientLight * K_a;
+       
+        for (int i = 0; i < 3; i++) {
             vec3 diff = normalize(-vec3(lights[i] - p));
             color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity) * shadow(p, diff, 0.01, length(lights[i]-p -0.01));
         }

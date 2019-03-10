@@ -24,7 +24,7 @@ public:
     GLfloat yaw;
     GLfloat pitch;
     GLfloat mouseSensitivity;
-    Camera( float3 _pos = float3(0.0f, 0.0f, 4.0f), 
+    Camera( float3 _pos = float3(0.0f, 0.0f, 3.5f), 
             float3 _front = float3(0.0f, 0.0f, -1.0f),
             float3 _up = float3(0.0f, 1.0f, 0.0f)) 
             : wUp(_up)
@@ -103,7 +103,7 @@ static bool keys[1024];
 static bool firstMouse = true;
 static bool g_captureMouse = false;
 static bool g_capturedMouseJustNow = false;
-static int sceneIndex = 1;
+static int sceneIndex = 2;
 static int fractalIter = 3;
 static int fractalIterReleased = true;
 static float angle = 0.0f;
@@ -225,6 +225,9 @@ void cameraMove(Camera &camera, GLfloat deltaTime)
     }
     if (keys[GLFW_KEY_2]) {
         sceneIndex = 2;
+    }
+    if (keys[GLFW_KEY_3]) {
+        sceneIndex = 3;
     }
 }
 
