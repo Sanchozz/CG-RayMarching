@@ -124,9 +124,8 @@ float sdMenger(vec3 pos) {
     return d;
 }
 
-/*float sdSierpinski(vec3 z)
+float sdSierpinski(vec3 z)
 {
-    const int iterations = 8;
     const float scale = 2.0;
     vec3 a1 = vec3(0.0,   1.0,  0.0);
     vec3 a2 = vec3(0.0,  -0.5,  1.5470);
@@ -135,7 +134,7 @@ float sdMenger(vec3 pos) {
     vec3 c;
     float dist, d;
     int i = 0;
-    for(int n=0; n < iterations; n++) {
+    for(int n=0; n < g_fractalIter; n++) {
         c = a1; dist = length(z-a1);
         d = length(z-a2); if (d < dist) { c = a2; dist=d; }
         d = length(z-a3); if (d < dist) { c = a3; dist=d; }
@@ -145,28 +144,8 @@ float sdMenger(vec3 pos) {
     }
 
     return (length(z)-2.0) * pow(scale, float(-i));
-}*/
+}
 
-float Shape(vec3 p){//distance to tetrahedron
-	return ( 
-        max(
-            max( -p.x-p.y-p.z, p.x+p.y-p.z ), 
-            max( -p.x+p.y+p.z, p.x-p.y+p.z ) 
-        )
-        -1.)/sqrt(3.0); 
-}
-float sdSierpinski(vec3 z){
-    for(int n=0;n < g_fractalIter;n++) {
-       //tetrahedron folding
-       if(z.x+z.y<0.) z.xy = -z.yx;
-       if(z.x+z.z<0.) z.xz = -z.zx;
-       if(z.y+z.z<0.) z.zy = -z.yz;
-       //scaling
-       z = z*2.-1.;
-    }
-    //dis & descale
-    return Shape(z) * pow(2., float(-4)); 
-}
 
 
 
@@ -281,13 +260,13 @@ Object rayMarching(vec3 eye, vec3 rayDirection)
 float3 EyeRayDirection(float x, float y, float w, float h)
 {
     float field_of_view = 3.141592654f / 2.0f;
-    vec3 ray_direction;
+    vec3 ray_d;
 
-    ray_direction.x = x + 0.5f - (w / 2.0f);
-    ray_direction.y = y + 0.5f - (h / 2.0f);
-    ray_direction.z = -w / tan(field_of_view / 2.0f);
+    ray_d.x = x + 0.5f - (w / 2.0f);
+    ray_d.y = y + 0.5f - (h / 2.0f);
+    ray_d.z = -w / tan(field_of_view / 2.0f);
 
-    return normalize(ray_direction);
+    return normalize(ray_d);
 }
 
 vec3 estimateNormal(vec3 p)
@@ -299,7 +278,7 @@ vec3 estimateNormal(vec3 p)
     ));
 }
 
-vec3 phongLight(vec3 k_d, vec3 k_s, float shininess, vec3 p, vec3 eye, vec3 lightPos, vec3 lightIntensity)
+vec3 phongLight(vec3 k_d, vec3 k_s, float shininess, vec3 p, vec3 eye, vec3 lightPos, vec3 lightint)
 {
     vec3 N = estimateNormal(p);
     vec3 L = normalize(lightPos - p);
@@ -310,18 +289,13 @@ vec3 phongLight(vec3 k_d, vec3 k_s, float shininess, vec3 p, vec3 eye, vec3 ligh
     float dotRV = dot(R, V);
 
     if (dotLN < 0.0) {
-        // С этой точки поверхности не видно света
         return vec3(0.0, 0.0, 0.0);
     }
 
     if (dotRV < 0.0) {
-        // Отражение в противоположном направление от зрителя
-        // используем  дифузный компонент
-        return lightIntensity * (k_d * dotLN);
+        return lightint * (k_d * dotLN);
     }
-
-    //
-    return lightIntensity * (k_d * dotLN + k_s * pow(dotRV, shininess));
+    return lightint * (k_d * dotLN + k_s * pow(dotRV, shininess));
 }
 
 float shadow(vec3 pos, vec3 dir, float mint, float maxt) {
@@ -366,7 +340,7 @@ void main(void)
     vec3 p = ray_pos + obj.dist * ray_dir;
 
     vec3 lights[3];
-    const vec3 lightIntensity = vec3(0.6, 0.6, 0.6);
+    const vec3 lightint = vec3(0.6, 0.6, 0.6);
     vec3 color;
     const vec3 ambientLight = 0.5 * vec3(1.0, 1.0, 1.0);
     if (sceneIndex == 1) {
@@ -385,7 +359,7 @@ void main(void)
             const float Shininess = 30;
             for (int i = 0; i < 2; i++) {
                 vec3 diff = normalize(-vec3(lights[i] - p));
-                mir += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity);
+                mir += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightint);
             }
             vec3 ref = reflect(normalize(ray_dir), -estimateNormal(p));
             obj = rayMarching(p + ref * 0.1, ref);
@@ -402,7 +376,7 @@ void main(void)
             const float Shininess = 4.0;
             for (int i = 0; i < 2; i++) {
                 vec3 diff = normalize(-vec3(lights[i] - p));
-                color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity) * shadow(p, diff, 0.01, length(lights[i]-p -0.01));
+                color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightint) * shadow(p, diff, 0.01, length(lights[i]-p -0.01));
             }
             color += mir+mir_k*(K_d*.2 + color*.1);
         } else if (obj.id == 3) { //ruby
@@ -412,7 +386,7 @@ void main(void)
             const float Shininess = 30;
             for (int i = 0; i < 2; i++) {
                 vec3 diff = normalize(-vec3(lights[i] - p));
-                color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity) * shadow(p, diff, 0.01, length(lights[i]-p)-0.01);
+                color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightint) * shadow(p, diff, 0.01, length(lights[i]-p)-0.01);
             }
             color += mir+mir_k*(K_d*.2 + color*.8);
         } else if (obj.id == 5) { //gold
@@ -422,7 +396,7 @@ void main(void)
             const float Shininess = 3;
             for (int i = 0; i < 2; i++) {
                 vec3 diff = normalize(-vec3(lights[i] - p));
-                color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity) * shadow(p, diff, 0.01, length(lights[i]-p)-0.01);
+                color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightint) * shadow(p, diff, 0.01, length(lights[i]-p)-0.01);
             }
             color += mir+mir_k*(K_d*.2 + color*.8);
         } else if (obj.id == 6) { //sin cos color
@@ -432,7 +406,7 @@ void main(void)
             const float Shininess = 30;
             for (int i = 0; i < 2; i++) {
                 vec3 diff = normalize(-vec3(lights[i] - p));
-                color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity) * shadow(p, diff, 0.01, length(lights[i]-p)-0.01);
+                color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightint) * shadow(p, diff, 0.01, length(lights[i]-p)-0.01);
             }
             color += mir+mir_k*(K_d*.2 + color*.1);
         }
@@ -448,21 +422,21 @@ void main(void)
        
         for (int i = 0; i < 3; i++) {
             vec3 diff = normalize(-vec3(lights[i] - p));
-            color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity) * shadow(p, diff, 0.01, length(lights[i]-p -0.01));
+            color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightint) * shadow(p, diff, 0.01, length(lights[i]-p -0.01));
         }
     } else if (sceneIndex == 3) { //copper
         lights[0] = vec3(-8.0, 4, 0);
         lights[1] = vec3(0.0, -2.0, 4.0);
         lights[2] = vec3(-6.0, 0.0, 4.0);
-        const vec3 K_a = vec3(0.24725, 0.1995, 0.0745);
-        const vec3 K_d = vec3(0.75164, 0.60648, 0.22648); 
-        const vec3 K_s = vec3(0.628281, 0.555802, 0.366065);
+        const vec3 K_a = vec3(0.0, 0.05, 0.0);
+        const vec3 K_d = vec3(0.4, 0.5, 0.4); 
+        const vec3 K_s = vec3(0.04, 0.7, 0.05);
         const float Shininess = 4;
         color = ambientLight * K_a;
        
         for (int i = 0; i < 3; i++) {
             vec3 diff = normalize(-vec3(lights[i] - p));
-            color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity) * shadow(p, diff, 0.01, length(lights[i]-p -0.01));
+            color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightint) * shadow(p, diff, 0.01, length(lights[i]-p -0.01));
         }
     }
 

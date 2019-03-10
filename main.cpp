@@ -103,7 +103,7 @@ static bool keys[1024];
 static bool firstMouse = true;
 static bool g_captureMouse = false;
 static bool g_capturedMouseJustNow = false;
-static int sceneIndex = 2;
+static int sceneIndex = 1;
 static int fractalIter = 3;
 static int fractalIterReleased = true;
 static float angle = 0.0f;
@@ -225,9 +225,14 @@ void cameraMove(Camera &camera, GLfloat deltaTime)
     }
     if (keys[GLFW_KEY_2]) {
         sceneIndex = 2;
+        fractalIter = 3;
     }
     if (keys[GLFW_KEY_3]) {
         sceneIndex = 3;
+        fractalIter = 9;
+    }
+    if (keys[GLFW_KEY_0]) {
+        sceneIndex = 1;
     }
 }
 
