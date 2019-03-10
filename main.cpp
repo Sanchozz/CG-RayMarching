@@ -264,7 +264,7 @@ int main(int argc, char **argv) {
     ShaderProgram program(shaders);
     GL_CHECK_ERRORS;
 
-    glfwSwapInterval(1); // force 60 frames per second
+    //glfwSwapInterval(1); // force 60 frames per second
 
     //Создаем и загружаем геометрию поверхности
     //

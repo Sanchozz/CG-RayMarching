@@ -72,7 +72,7 @@ float sdBox( vec3 p, vec3 b )
 float sdCross(vec3 pos) {
     float d = sdBox(pos, vec3(1.0));
     float s = 1.0;
-    for (int m = 0; m < 4; m++) {
+    for (int m = 0; m < 8; m++) {
         vec3 a = mod(pos * s, 2.0) - 1.0;
         s *= 3.0;
         vec3 r = abs(1.0 - 3.0 * abs(a));
@@ -92,7 +92,7 @@ float sdCross(vec3 pos) {
 
 Object sceneSDF1(vec3 pos)
 {
-    Object objs[2];
+    Object objs[3];
 
     objs[0].id = 1;
     objs[0].dist = Sphere(pos, vec3(0.0, 0.0, 0.0), 1);
@@ -112,9 +112,12 @@ Object sceneSDF1(vec3 pos)
     objs[1].is_reflect = false;
     objs[1].is_refract = false;*/
 
+    objs[2].id = 3;
+    objs[2].dist = Sphere(pos, vec3(2.0, 2.0, 2.0), 1);
+
     float min_dist = 1000.0f;
     int nearest_i;
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 3; i++) {
         if (objs[i].dist < min_dist) {
             nearest_i = i;
             min_dist = objs[i].dist;
@@ -233,25 +236,6 @@ float shadow(vec3 pos, vec3 dir, float mint, float maxt) {
         t += h;
     }
     return 1.0;
-
-    /*pos = pos + dir * mint;
-    float dist = sceneSDF1(pos).dist;
-    float t = dist;
-
-    float shadowFactor = 1.0;
-
-    for (int i=0; i < 500; i++) {
-        dist = sceneSDF1(pos + dir * t).dist;
-        if (dist < EPSILON) {
-            return 0.0;
-        }
-
-        shadowFactor = min(shadowFactor, (8.0) * dist / float(i));
-        t += dist;
-    }
-
-    shadowFactor = clamp(shadowFactor, 0.0, 1.0);
-    return shadowFactor;*/
 }
 
 void main(void)
@@ -288,42 +272,56 @@ void main(void)
     vec3 K_s;
     float Shininess;
 
-    switch (obj.id) {
-        case 1:
-            K_a = vec3(0.1745, 0.01175, 0.01175);
-            K_d = vec3(0.61424, 0.04136, 0.04136); 
-            K_s = vec3(0.727811, 0.626959, 0.626959);
-            Shininess = 2.6;
-            break;
-        case 2:
-            K_a = vec3(0.1, 0.1, 0.1);
-            K_d = vec3(0.55, 0.55, 0.55);
-            K_s = vec3(0.2, 0.2, 0.2);
-            Shininess = 13.0;
-            break;
-        default: 
-            K_a = vec3(0.1745, 0.01175, 0.01175);
-            K_d = vec3(0.61424, 0.04136, 0.04136); 
-            K_s = vec3(0.727811, 0.626959, 0.626959);
-            Shininess = 2.6;
-            break;
-    };
-    /*const vec3 K_a = vec3(0.7, 0.7, 0.7);
-    const vec3 K_d = vec3(0.55, 0.55, 0.55); 
-    const vec3 K_s = vec3(0.7, 0.7, 0.7);
-    const float Shininess = 30.0;*/
     vec3 lights[2];
     vec3 lightIntensity = vec3(0.5, 0.5, 0.5);
     const vec3 ambientLight = 0.5 * vec3(1.0, 1.0, 1.0);
-    vec3 color = ambientLight * K_a;
-    lights[0] = vec3(2.0, 0, 0);
-    lights[1] = vec3(0.0, 0.0, 2.0);
-    //lights[2] = vec3(5.9, 5.9, -5.9);
-    //lights[3] = vec3(-5.9, 5.9, -5.9);
+    //vec3 color = ambientLight * K_a;
+    vec3 color = vec3(0.0, 0.0, 0.0);
+    lights[0] = vec3(4.0, 0, 0);
+    lights[1] = vec3(0.0, 0.0, 4.0);
+  
 
-    for (int i = 0; i < 2; i++) {
-        vec3 diff = normalize(-vec3(lights[i] - p));
-        color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity) * shadow(p, diff, 0.1, length(lights[i]-p)-0.1) / 2;
+    float3 mir = float3(0.0, 0.0, 0.0);
+    float mir_k = 1.0;
+    if (obj.id == 1) {
+        K_a = vec3(0.6745, 0.61175, 0.61175);
+        K_d = vec3(0.0, 0.0, 0.0); 
+        K_s = vec3(0.9, 0.9, 0.9);
+        Shininess = 2.6;
+        for (int i = 0; i < 2; i++) {
+            vec3 diff = normalize(-vec3(lights[i] - p));
+            mir += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity);
+        }
+        vec3 ref = reflect(normalize(ray_dir), -estimateNormal(p));
+        obj = rayMarching(p + ref * 0.01, ref);
+        p = p + ref * obj.dist;
+        
+        mir_k = .9;
+    }
+    
+
+    if (obj.id == 2) {
+        K_a = vec3(0.1, 0.1, 0.1);
+        K_d = vec3(0.55, 0.55, 0.55);
+        K_s = vec3(0.2, 0.2, 0.2);
+        Shininess = 13.0;
+        for (int i = 0; i < 2; i++) {
+            vec3 diff = normalize(-vec3(lights[i] - p));
+            color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity) * shadow(p, diff, 0.1, length(lights[i]-p)-0.1) / 2;
+        }
+        color += mir+mir_k*(K_d*.2 + color*.8);
+    }
+
+    if (obj.id == 3) {
+        K_a = vec3(0.1745, 0.01175, 0.01175);
+        K_d = vec3(0.61424, 0.04136, 0.04136); 
+        K_s = vec3(0.727811, 0.626959, 0.626959);
+        Shininess = 30;
+        for (int i = 0; i < 2; i++) {
+            vec3 diff = normalize(-vec3(lights[i] - p));
+            color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity) * shadow(p, diff, 0.1, length(lights[i]-p)-0.1) / 2;
+        }
+        color += mir+mir_k*(K_d*.2 + color*.8);
     }
 
 
