@@ -1,4 +1,4 @@
-#version 440
+#version 330
 
 #define float2 vec2
 #define float3 vec3
@@ -20,19 +20,19 @@ uniform vec3 g_bBoxMax   = float3(1, 1, 1);
 
 uniform mat4 g_rayMatrix;
 
-uniform vec4 g_bgColor = float4(0, 1, 1, 1);
+uniform vec4 g_bgColor = float4(0, 0, 1, 1);
 
 uniform int g_sceneIndex;
 
 int sceneIndex = g_sceneIndex;
 // Максимальное количество шагов
-#define MAX_MARCHING_STEPS 500
+#define MAX_MARCHING_STEPS 150
 #define MIN_MARCHING_STEP 0.5
 // Минимальная и максимальная дистанция
 #define MIN_DIST 0.0
 #define MAX_DIST 100.0
 //
-#define EPSILON  0.000002
+#define EPSILON  0.0001
 
 struct Object {
     int id;
@@ -59,9 +59,6 @@ float Sphere(vec3 pos, vec3 spos, float s) {
 float udRoundBox( vec3 pos, vec3 b, float r )
 {
     float dist = length(max(abs(pos)-b, 0.0))-r;
-    if (dist < 0) {
-        return -dist;
-    }
     return dist;
 }
 
@@ -98,7 +95,7 @@ Object sceneSDF1(vec3 pos)
     Object objs[2];
 
     objs[0].id = 1;
-    objs[0].dist = Sphere(pos, vec3(0.0, 1.0, 0.0), 1);
+    objs[0].dist = Sphere(pos, vec3(0.0, 0.0, 0.0), 1);
   /*objs[0].ambient = vec3(0.1745, 0.01175, 0.01175);
     objs[0].diffuse = vec3(0.61424, 0.04136, 0.04136);
     objs[0].specular = vec3(0.727811, 0.626959, 0.626959);
@@ -175,7 +172,7 @@ Object rayMarching(vec3 eye, vec3 rayDirection)
         }
 
     }
-    cur_obj.dist = MAX_DIST;
+    //cur_obj.dist = MAX_DIST;
     return cur_obj;
 }
 
@@ -226,17 +223,14 @@ vec3 phongLight(vec3 k_d, vec3 k_s, float shininess, vec3 p, vec3 eye, vec3 ligh
     return lightIntensity * (k_d * dotLN + k_s * pow(dotRV, shininess));
 }
 
-float shadow(vec3 pos, vec3 dir, float mint, float maxt, int id) {
+float shadow(vec3 pos, vec3 dir, float mint, float maxt) {
     for (float t = mint; t < maxt;) {
         Object obj = sceneSDF1(pos - dir * t);
         float h = obj.dist;
-        if (id == obj.id) {
-            h = 0.1;
-        }
         if (h < EPSILON) {
             return 0.0;
         }
-        t += abs(h);
+        t += h;
     }
     return 1.0;
 
@@ -329,7 +323,7 @@ void main(void)
 
     for (int i = 0; i < 2; i++) {
         vec3 diff = normalize(-vec3(lights[i] - p));
-        color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity);
+        color += phongLight(K_d, K_s, Shininess, p, ray_pos, lights[i], lightIntensity) * shadow(p, diff, 0.1, length(lights[i]-p)-0.1) / 2;
     }
 
 
