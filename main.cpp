@@ -9,67 +9,80 @@
 #include <GLFW/glfw3.h>
 #include <random>
 
-static GLsizei WIDTH = 512, HEIGHT = 512; //размеры окна
-static GLsizei FRAMEBUFFER_WIDTH = 512, FRAMEBUFFER_HEIGHT = 512;
-
 using namespace LiteMath;
 
 class Camera {
+    float3 wFront;
     float3 wUp;
+    float3 wRight;
+    float3 wPos;
 public:
     float3 pos;
     float3 front;
     float3 up;
     float3 right;
-    GLfloat yaw;
-    GLfloat pitch;
+    GLfloat cameraXAngle;
+    GLfloat cameraYAngle;
     GLfloat mouseSensitivity;
     Camera( float3 _pos = float3(0.0f, 0.0f, 3.5f), 
             float3 _front = float3(0.0f, 0.0f, -1.0f),
             float3 _up = float3(0.0f, 1.0f, 0.0f)) 
-            : wUp(_up)
+            : wFront(_front)
+            , wUp(_up)
+            , wRight(normalize(cross(_up, _front)))
+            , wPos(_pos)
             , pos(_pos)
             , front(_front)
             , up(_up)
             , right(normalize(cross(_up, _front)))
-            , yaw(-90.0f)
-            , pitch(0.0f)
+            , cameraXAngle(-90.0f)
+            , cameraYAngle(0.0f)
             , mouseSensitivity(0.1f) {
-                updateCameraVectors();
+                updateVectors();
             }
 
     float4x4 GetViewMatrix() const {
         return lookAtTransposed(pos, pos + front, up);
     }
 
-    void updateCameraVectors() {
+    void setInitPos() {
+        front = wFront;
+        right = wRight;
+        up = wUp;
+        pos = wPos;
+        cameraXAngle = -90.0f;
+        cameraYAngle = 0.0f;
+        updateVectors();
+    }
+
+    void updateVectors() {
         float3 tmp;
 
-        tmp.x = cos(DEG_TO_RAD*yaw) * cos(DEG_TO_RAD*pitch);
-        tmp.y = sin(DEG_TO_RAD*pitch);
-        tmp.z = sin(DEG_TO_RAD*yaw) * cos(DEG_TO_RAD*pitch);
+        tmp.x = cos(DEG_TO_RAD * cameraXAngle) * cos(DEG_TO_RAD * cameraYAngle);
+        tmp.y = sin(DEG_TO_RAD * cameraYAngle);
+        tmp.z = sin(DEG_TO_RAD * cameraXAngle) * cos(DEG_TO_RAD * cameraYAngle);
 
         front = normalize(tmp);
         right = normalize(cross(front, wUp));
-        up    = normalize(cross(right, front));
+        up = normalize(cross(right, front));
     }
 
-    void ProcessMouseMove(GLfloat deltaX, GLfloat deltaY, GLboolean limitPitch) {
+    void ProcessMouseMove(GLfloat deltaX, GLfloat deltaY, GLboolean limitAngle) {
         deltaX *= mouseSensitivity;
         deltaY *= mouseSensitivity;
 
-        yaw += deltaX;
-        pitch += deltaY;
+        cameraXAngle += deltaX;
+        cameraYAngle += deltaY;
 
-        if (limitPitch) {
-            if (pitch > 89.0f) {
-                pitch = 89.0f;
+        if (limitAngle) {
+            if (cameraYAngle > 89.0f) {
+                cameraYAngle = 89.0f;
             }
-            if (pitch < -89.0f) {
-                pitch = -89.0f;
+            if (cameraYAngle < -89.0f) {
+                cameraYAngle = -89.0f;
             }
         }
-        updateCameraVectors();
+        updateVectors();
     }
 
     void ProcessKeyboard(int dir, GLfloat deltaTime, GLfloat a) {
@@ -96,13 +109,17 @@ public:
     }
 };
 
+static GLsizei WIDTH = 512, HEIGHT = 512; //размеры окна
+static GLsizei FRAMEBUFFER_WIDTH = 512, FRAMEBUFFER_HEIGHT = 512;
+
+
+
 Camera camera;
-float cam_rot[2] = {0, 0};
 static GLfloat mx = 0, my = 0;
-static bool keys[1024];
+static bool keys[512];
 static bool firstMouse = true;
-static bool g_captureMouse = false;
-static bool g_capturedMouseJustNow = false;
+static bool captureMouse = false;
+static bool captured = false;
 static int sceneIndex = 1;
 static int fractalIter = 3;
 static int fractalIterReleased = true;
@@ -135,28 +152,28 @@ static void mouseMove(GLFWwindow *window, double xpos, double ypos) {
     mx = float(xpos);
     my = float(ypos);
     
-    if (g_captureMouse) {
+    if (captureMouse) {
         camera.ProcessMouseMove(xoffset, yoffset, true);
     }
 
 }
 
-void mouseClick(GLFWwindow* window, int button, int action, int mods)
+static void mouseClick(GLFWwindow* window, int button, int action, int mods)
 {
     if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
-        g_captureMouse = !g_captureMouse;
+        captureMouse = !captureMouse;
     }
 
-    if (g_captureMouse) {
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-        g_capturedMouseJustNow = true;
-    } else {
+    if (!captureMouse) {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    } else {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        captured = true;
     }
 
 }
 
-void keyboardPress(GLFWwindow* window, int key, int scancode, int action, int mode) {
+static void keyboardPress(GLFWwindow* window, int key, int scancode, int action, int mode) {
     switch (key) {
         case GLFW_KEY_ESCAPE:
             if (action == GLFW_PRESS) {
@@ -186,6 +203,52 @@ void keyboardPress(GLFWwindow* window, int key, int scancode, int action, int mo
 			    keys[key] = false;
             }
             break;
+        case GLFW_KEY_0:
+            if (action == GLFW_PRESS) {
+                if (!keys[key]) {
+                    keys[key] = true;
+                    sceneIndex = 1;
+                    camera.setInitPos();
+                } 
+            } else if (action == GLFW_RELEASE) {
+			    keys[key] = false;
+            }
+            break;
+        case GLFW_KEY_1:
+            if (action == GLFW_PRESS) {
+                if (!keys[key]) {
+                    keys[key] = true;
+                    sceneIndex = 1;
+                    camera.setInitPos();
+                } 
+            } else if (action == GLFW_RELEASE) {
+			    keys[key] = false;
+            }
+            break;
+        case GLFW_KEY_2:
+            if (action == GLFW_PRESS) {
+                if (!keys[key]) {
+                    keys[key] = true;
+                    sceneIndex = 2;
+                    fractalIter = 3;
+                    camera.setInitPos();
+                } 
+            } else if (action == GLFW_RELEASE) {
+			    keys[key] = false;
+            }
+            break;
+        case GLFW_KEY_3:
+            if (action == GLFW_PRESS) {
+                if (!keys[key]) {
+                    keys[key] = true;
+                    sceneIndex = 3;
+                    fractalIter = 9;
+                    camera.setInitPos();
+                } 
+            } else if (action == GLFW_RELEASE) {
+			    keys[key] = false;
+            }
+            break;
         default:
             if (action == GLFW_PRESS) {
 			    keys[key] = true;
@@ -196,11 +259,11 @@ void keyboardPress(GLFWwindow* window, int key, int scancode, int action, int mo
     }
 }
 
-void cameraMove(Camera &camera, GLfloat deltaTime)
+static void cameraMove(Camera &camera, GLfloat deltaTime)
 {
-    GLfloat a = 2.0;
+    GLfloat a = 0.5;
     if (keys[GLFW_KEY_LEFT_SHIFT]) {
-        a = 4.0;
+        a = 2.0;
     }
     if (keys[GLFW_KEY_W]) {
         camera.ProcessKeyboard(0, deltaTime, a);
@@ -219,20 +282,6 @@ void cameraMove(Camera &camera, GLfloat deltaTime)
     }
     if (keys[GLFW_KEY_F]) {
         camera.ProcessKeyboard(5, deltaTime, a);
-    }
-    if (keys[GLFW_KEY_1]) {
-        sceneIndex = 1;
-    }
-    if (keys[GLFW_KEY_2]) {
-        sceneIndex = 2;
-        fractalIter = 3;
-    }
-    if (keys[GLFW_KEY_3]) {
-        sceneIndex = 3;
-        fractalIter = 9;
-    }
-    if (keys[GLFW_KEY_0]) {
-        sceneIndex = 1;
     }
 }
 
@@ -301,7 +350,7 @@ int main(int argc, char **argv) {
     ShaderProgram program(shaders);
     GL_CHECK_ERRORS;
 
-    //glfwSwapInterval(1); // force 60 frames per second
+    glfwSwapInterval(1); // force 60 frames per second
 
     //Создаем и загружаем геометрию поверхности
     //
@@ -350,12 +399,8 @@ int main(int argc, char **argv) {
         glfwPollEvents();
         cameraMove(camera, deltaTime);
         if (sceneIndex == 1) {
-            angle += 0.01;
+            angle += 0.02;
         }
-        
-        /*if (angle == 3.15) {
-            angle = 0.0f;
-        }*/
         //очищаем экран каждый кадр
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         GL_CHECK_ERRORS;
@@ -365,17 +410,15 @@ int main(int argc, char **argv) {
         program.StartUseShader();
         GL_CHECK_ERRORS;
 
-        //float4x4 camRotMatrix = mul(rotate_Y_4x4(-cam_rot[1]), rotate_X_4x4(+cam_rot[0]));
-        //float4x4 camTransMatrix = translate4x4(g_camPos);
-       // float4x4 camTransMatrix = camera.GetViewMatrix();
-        //float4x4 rayMatrix = mul(camRotMatrix, camTransMatrix);
         float4x4 rayMatrix = camera.GetViewMatrix();
         program.SetUniform("g_rayMatrix", rayMatrix);
         program.SetUniform("g_rayPos", camera.pos);
         if (sceneIndex == 1) {
             program.SetUniform("g_angle", angle);
         }
-        program.SetUniform("g_fractalIter", fractalIter);
+        if (sceneIndex != 1) {
+            program.SetUniform("g_fractalIter", fractalIter);
+        }
         program.SetUniform("g_sceneIndex", sceneIndex);
         program.SetUniform("g_screenWidth", WIDTH);
         program.SetUniform("g_screenHeight", HEIGHT);
